@@ -1,0 +1,43 @@
+version: "3.9"
+
+services:
+
+  kafka-0:
+    image: ${IMAGE}
+    ports:
+      - "9094:9094"
+    env_file: .env
+    environment:
+      # уникальный идентификатор узла
+      - KAFKA_CFG_NODE_ID=0
+      # список Listener-ов для внешних клиентов. По умолчанию = KAFKA_CFG_LISTENERS
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka-0:9092,EXTERNAL://127.0.0.1:9094
+
+  kafka-1:
+    image: ${IMAGE}
+    ports:
+      - "9095:9094"
+    env_file: .env
+    environment:
+      - KAFKA_CFG_NODE_ID=1
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka-1:9092,EXTERNAL://127.0.0.1:9095
+
+  kafka-2:
+    image: ${IMAGE}888888888вавава
+    ports:
+      - "9096:9094"
+    env_file: .env
+    environment:
+      - KAFKA_CFG_NODE_ID=2
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka-2:9092,EXTERNAL://127.0.0.1:9096
+
+  ui:
+    image: provectuslabs/kafka-ui:v0.7.0
+    ports:
+      - "8080:8080"
+    environment:
+#     адрес:порт kafka listener-ов для подключения UI
+      - KAFKA_CLUSTERS_0_BOOTSTRAP_SERVERS=kafka-0:9092,kafka-1:9092,kafka-2:9092
+#     внутреннее названия этого кластера
+      - KAFKA_CLUSTERS_0_NAME=kraft
+#     _0_ это 1 элемент списка. Можно указать несколько кластеров
