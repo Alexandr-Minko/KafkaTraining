@@ -1,8 +1,0 @@
-docker exec -it kafkatraining-kafka-0-1 kafka-topics.sh --create --topic top1 --partitions 3 --replication-factor 2 --bootstrap-server kafka-0:9092
-
-PS C:\Projects\KafkaTraining> docker exec -it kafkatraining-kafka-0-1 kafka-topics.sh --describe --topic top1 --bootstrap-server localhost:9092
-Topic: top1     TopicId: cWQseECkQueTByanyRUCcA PartitionCount: 3       ReplicationFactor: 2    Configs:
-        Topic: top1     Partition: 0    Leader: 1       Replicas: 1,2   Isr: 1,2
-        Topic: top1     Partition: 1    Leader: 2       Replicas: 2,0   Isr: 2,0
-        Topic: top1     Partition: 2    Leader: 0       Replicas: 0,1   Isr: 0,1
-

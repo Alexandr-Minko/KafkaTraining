@@ -33,6 +33,10 @@ services:
 
   ui:
     image: provectuslabs/kafka-ui:v0.7.0
+    depends_on:
+      - kafka-0
+      - kafka-1
+      - kafka-2
     ports:
       - "8090:8080"
     environment:
@@ -41,3 +45,23 @@ services:
 #     внутреннее названия этого кластера
       - KAFKA_CLUSTERS_0_NAME=kraft
 #     _0_ это 1 элемент списка. Можно указать несколько кластеров
+
+  ksqldb:
+    image: confluentinc/cp-ksqldb-server:7.6.1
+    depends_on:
+      - kafka-0
+      - kafka-1
+      - kafka-2
+    ports:
+      - 8088:8088
+    environment:
+      KSQL_KSQL_SERVICE_ID: 'ksql'
+      KSQL_BOOTSTRAP_SERVERS: kafka-0:9092,kafka-1:9092,kafka-2:9092
+      KSQL_LISTENERS: 'http://0.0.0.0:8088'
+
+  # использование -> docker-compose exec ksqldb-cli ksql http://ksqldb:8088
+  ksqldb-cli:
+    image: confluentinc/cp-ksqldb-cli:7.6.1
+    depends_on:
+      - ksqldb
+    tty: true
