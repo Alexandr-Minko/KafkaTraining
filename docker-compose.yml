@@ -3,36 +3,82 @@ version: "3.9"
 services:
 
   kafka-0:
-    image: ${IMAGE}
+    image: ${KAFKA_IMAGE}
     ports:
       - "9094:9094"
+      - "9194:9194"
     env_file: .env
     environment:
       # уникальный идентификатор узла
       - KAFKA_CFG_NODE_ID=0
       # список Listener-ов для внешних клиентов. По умолчанию = KAFKA_CFG_LISTENERS
       - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka-0:9092,EXTERNAL://127.0.0.1:9094
+      - KAFKA_JMX_OPTS=-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.local.only=false -Dcom.sun.management.jmxremote.port=9194 -Dcom.sun.management.jmxremote.rmi.port=9194
+
+  jmx-exporter-0:
+    image: "sscaling/jmx-prometheus-exporter"
+    ports:
+      - "5556:5556"
+    environment:
+      CONFIG_YML: "/etc/jmx_exporter/config.yml"
+      JVM_OPTS: "-Xmx128M"
+    volumes:
+      - ./data/etc/jmx_exporter/config_kafka0.yml:/etc/jmx_exporter/config.yml
+    depends_on:
+      - kafka-0
+
+  jmx-exporter-1:
+    image: "sscaling/jmx-prometheus-exporter"
+    ports:
+      - "5557:5556"
+    environment:
+      CONFIG_YML: "/etc/jmx_exporter/config.yml"
+      JVM_OPTS: "-Xmx128M"
+    volumes:
+      - ./data/etc/jmx_exporter/config_kafka1.yml:/etc/jmx_exporter/config.yml
+    depends_on:
+      - kafka-1
+
+  jmx-exporter-2:
+    image: "sscaling/jmx-prometheus-exporter"
+    ports:
+      - "5558:5556"
+    environment:
+      CONFIG_YML: "/etc/jmx_exporter/config.yml"
+      JVM_OPTS: "-Xmx128M"
+    volumes:
+      - ./data/etc/jmx_exporter/config_kafka2.yml:/etc/jmx_exporter/config.yml
+    depends_on:
+      - kafka-2
 
   kafka-1:
-    image: ${IMAGE}
+    image: ${KAFKA_IMAGE}
     ports:
       - "9095:9094"
+      - "9195:9194"
     env_file: .env
     environment:
       - KAFKA_CFG_NODE_ID=1
       - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka-1:9092,EXTERNAL://127.0.0.1:9095
+      - KAFKA_JMX_PORT = 9194
+      - KAFKA_JMX_HOSTNAME = kafka-0
+#      - KAFKA_JMX_OPTS=-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.local.only=false -Dcom.sun.management.jmxremote.port=9194 -Dcom.sun.management.jmxremote.rmi.port=9194 -Djava.rmi.server.hostname=kafka-1
 
   kafka-2:
-    image: ${IMAGE}
+    image: ${KAFKA_IMAGE}
     ports:
       - "9096:9094"
+      - "9196:9194"
     env_file: .env
     environment:
       - KAFKA_CFG_NODE_ID=2
       - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka-2:9092,EXTERNAL://127.0.0.1:9096
+      - KAFKA_JMX_PORT = 9194
+      - KAFKA_JMX_HOSTNAME = kafka-0
+#      - KAFKA_JMX_OPTS=-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.local.only=false -Dcom.sun.management.jmxremote.port=9194 -Dcom.sun.management.jmxremote.rmi.port=9194 -Djava.rmi.server.hostname=kafka-2
 
   ui:
-    image: provectuslabs/kafka-ui:v0.7.0
+    image: provectuslabs/kafka-ui:v0.7.2
     depends_on:
       - kafka-0
       - kafka-1
@@ -46,22 +92,24 @@ services:
       - KAFKA_CLUSTERS_0_NAME=kraft
 #     _0_ это 1 элемент списка. Можно указать несколько кластеров
 
-  ksqldb:
-    image: confluentinc/cp-ksqldb-server:7.6.1
-    depends_on:
-      - kafka-0
-      - kafka-1
-      - kafka-2
+  prometheus:
+    image: prom/prometheus:v2.47.1
     ports:
-      - 8088:8088
-    environment:
-      KSQL_KSQL_SERVICE_ID: 'ksql'
-      KSQL_BOOTSTRAP_SERVERS: kafka-0:9092,kafka-1:9092,kafka-2:9092
-      KSQL_LISTENERS: 'http://0.0.0.0:8088'
+      - "9090:9090"
+    volumes:
+      - ./data/etc/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./data/etc/prometheus/alert.rules:/etc/prometheus/alert.rules
+    command: "--config.file=/etc/prometheus/prometheus.yml"
 
-  # использование -> docker-compose exec ksqldb-cli ksql http://ksqldb:8088
-  ksqldb-cli:
-    image: confluentinc/cp-ksqldb-cli:7.6.1
+  grafana:
+    image: grafana/grafana:9.5.12
+    ports:
+      - "3001:3000"
+    environment:
+      GF_PATHS_DATA : /var/lib/grafana
+      GF_SECURITY_ADMIN_PASSWORD : kafka
+    volumes:
+      - ./data/grafana/provisioning:/etc/grafana/provisioning
+      - ./data/grafana/dashboards:/var/lib/grafana/dashboards
     depends_on:
-      - ksqldb
-    tty: true
+      - prometheus
