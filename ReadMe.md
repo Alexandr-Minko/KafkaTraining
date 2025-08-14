@@ -19,7 +19,7 @@
 11. Убеждаемся что коннектор обрабатывает сообщения по логу kafka-connect. Ищем по префиксу: "CUSTOM CONNECTOR: Received record"
 12. Можно еще проверить коннектор через debug. Об этом ниже
 
-### 2. DEBUG коннектора kafka connect
+### 3. DEBUG коннектора kafka connect
 Я научился дебажить через IntelliJ IDEA созданный коннектор!!! Для этого:
 1. В docker-compose.yml в kafka-connect добавлен параметр JVM для включения дебага:   
 JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,address=*:5005,server=y,suspend=n"
@@ -29,7 +29,7 @@ JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,address=*:5005,server=y,s
 4. Должно появится: Connected to the target VM, address: 'localhost:5005', transport: 'socket'
 5. Ставит брейк-поинт в методе CustomSinkTask.put() и наслаждаемся! =)
 
-### 3. Мониторинг
+### 4. Мониторинг
 Мониторинг через Kafka connect -> JMX -> Prometheus  -> Grafana тоже сделал. Проверяем:
 1. Kafka connect (как и сама kafka), тоже не умеет отдавать метрики Prometheus по http.
 Но как и kafka отдает метрики по JMX. Поэтому используем JMX экспортер, но в отличие от урока с kafka,

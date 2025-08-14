@@ -31,22 +31,15 @@ PUT http://localhost:8083/connectors/custom/config
 
 {
 
-   "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
-   "database.hostname": "postgres",
-   "database.port": "5432",
-   "database.user": "postgres",
-   "database.password": "postgres",
-   "database.dbname": "customers",
-   "database.server.name": "customers",
-   "table.whitelist": "public.orders,public.users",
-   "transforms": "unwrap",
-   "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
-   "transforms.unwrap.drop.tombstones": "false",
-   "transforms.unwrap.delete.handling.mode": "rewrite",
-   "topic.prefix": "debezium",
-   "topic.creation.enable": "true",
-   "topic.creation.default.replication.factor": "-1",
-   "topic.creation.default.partitions": "-1",
-   "skipped.operations": "none"
+{
+
+   "connector.class": "minko.kafkatraining.connector.CustomSinkConnector",
+   "topics": "debezium.public.orders,debezium.public.users",
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "value.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "key.converter.schemas.enable": "false",
+    "value.converter.schemas.enable": "false"
+
+}
 
 }
