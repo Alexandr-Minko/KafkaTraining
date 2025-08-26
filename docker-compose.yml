@@ -8,10 +8,12 @@ services:
       - "9094:9094"
     env_file: .env
     environment:
-      # уникальный идентификатор узла
       - KAFKA_CFG_NODE_ID=0
-      # список Listener-ов для внешних клиентов. По умолчанию = KAFKA_CFG_LISTENERS
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka-0:9092,EXTERNAL://127.0.0.1:9094
+      - KAFKA_CFG_ADVERTISED_LISTENERS=BROKER://kafka-0:9092,CLIENT://127.0.0.1:9094
+    volumes:
+      - ./client.properties:/tmp/client.properties:ro
+      - ./kafka0/kafka0.keystore.jks:/opt/bitnami/kafka/config/certs/kafka.keystore.jks:ro
+      - ./src/main/resources/ssl/kafka.truststore.jks:/opt/bitnami/kafka/config/certs/kafka.truststore.jks:ro
 
   kafka-1:
     image: ${KAFKA_IMAGE}
@@ -20,7 +22,10 @@ services:
     env_file: .env
     environment:
       - KAFKA_CFG_NODE_ID=1
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka-1:9092,EXTERNAL://127.0.0.1:9095
+      - KAFKA_CFG_ADVERTISED_LISTENERS=BROKER://kafka-1:9092,CLIENT://127.0.0.1:9095
+    volumes:
+      - ./kafka1/kafka1.keystore.jks:/opt/bitnami/kafka/config/certs/kafka.keystore.jks:ro
+      - ./src/main/resources/ssl/kafka.truststore.jks:/opt/bitnami/kafka/config/certs/kafka.truststore.jks:ro
 
   kafka-2:
     image: ${KAFKA_IMAGE}
@@ -29,7 +34,10 @@ services:
     env_file: .env
     environment:
       - KAFKA_CFG_NODE_ID=2
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka-2:9092,EXTERNAL://127.0.0.1:9096
+      - KAFKA_CFG_ADVERTISED_LISTENERS=BROKER://kafka-2:9092,CLIENT://127.0.0.1:9096
+    volumes:
+      - ./kafka2/kafka2.keystore.jks:/opt/bitnami/kafka/config/certs/kafka.keystore.jks:ro
+      - ./src/main/resources/ssl/kafka.truststore.jks:/opt/bitnami/kafka/config/certs/kafka.truststore.jks:ro
 
   ui:
     image: provectuslabs/kafka-ui:v0.7.2
@@ -40,96 +48,8 @@ services:
     ports:
       - "8090:8080"
     environment:
-#     адрес:порт kafka listener-ов для подключения UI
-      - KAFKA_CLUSTERS_0_BOOTSTRAP_SERVERS=kafka-0:9092,kafka-1:9092,kafka-2:9092
-#     внутреннее названия этого кластера
       - KAFKA_CLUSTERS_0_NAME=kraft
-#     _0_ это 1 элемент списка. Можно указать несколько кластеров
-
-  schema-registry:
-    image: bitnami/schema-registry:7.6
-    ports:
-      - "8081:8081"
-    depends_on:
-      - kafka-0
-      - kafka-1
-      - kafka-2
-    environment:
-      # Прослушивание запросов на порту 8081
-      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
-      # Список брокеров Kafka
-      SCHEMA_REGISTRY_KAFKA_BROKERS: PLAINTEXT://kafka-0:9092,PLAINTEXT://kafka-1:9092,PLAINTEXT://kafka-2:9092
-
-  postgres:
-    image: debezium/postgres:17
-    ports:
-      - "5432:5432"
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: customers
-    volumes:
-      - ./postgres/custom-config.conf:/etc/postgresql/postgresql.conf
-    command: postgres -c config_file=/etc/postgresql/postgresql.conf
-
-  kafka-connect:
-    build:
-      context: ./kafka-connect
-    ports:
-      - "8083:8083"  # REST API Kafka Connect
-      - "9875:9875"
-      - "9876:9876"
-      - "5005:5005"
-    depends_on:
-      - kafka-0
-      - kafka-1
-      - kafka-2
-      - schema-registry
-      - postgres
-    environment:
-      CONNECT_BOOTSTRAP_SERVERS: kafka-0:9092,kafka-1:9092,kafka-2:9092
-      CONNECT_REST_PORT: 8083
-      CONNECT_GROUP_ID: 'kafka-connect'
-      CONNECT_REST_ADVERTISED_HOST_NAME: 'localhost'
-
-      # Хранение конфигурации, смещений и статусов
-      CONNECT_CONFIG_STORAGE_TOPIC: 'connect-config'
-      CONNECT_OFFSET_STORAGE_TOPIC: 'connect-offset'
-      CONNECT_STATUS_STORAGE_TOPIC: 'connect-status'
-      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
-      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
-      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
-
-      # Конвертеры
-      CONNECT_KEY_CONVERTER: "io.confluent.connect.avro.AvroConverter"
-      CONNECT_VALUE_CONVERTER: "io.confluent.connect.avro.AvroConverter"
-      CONNECT_INTERNAL_KEY_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
-      CONNECT_INTERNAL_VALUE_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
-      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: 'http://schema-registry:8081/'
-      CONNECT_KEY_CONVERTER_SCHEMA_REGISTRY_URL:  'http://schema-registry:8081/'
-
-      # Export JMX metrics to :9876/metrics for Prometheus
-      KAFKA_JMX_PORT: '9875'
-      KAFKA_OPTS: "-javaagent:/opt/jmx_prometheus_javaagent-0.15.0.jar=9876:/opt/kafka-connect.yml"
-      # Read connection password from file
-      CONNECT_CONFIG_PROVIDERS: "file"
-      CONNECT_CONFIG_PROVIDERS_FILE_CLASS: "org.apache.kafka.common.config.provider.FileConfigProvider"
-      # Пути к плагинам
-      CONNECT_PLUGIN_PATH: /usr/share/java,/etc/kafka-connect/jars
-      JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,address=*:5005,server=y,suspend=n"
-    volumes:
-      - ./connectors/:/etc/kafka-connect/jars
-
-  prometheus:
-    image: prom/prometheus:v2.30.3
-    ports:
-      - 9090:9090
-    volumes:
-      - ./prometheus:/etc/prometheus
-    command: --web.enable-lifecycle --config.file=/etc/prometheus/prometheus.yml
-
-  grafana:
-    build:
-      context: ./grafana
-    ports:
-      - 3000:3000
+      - KAFKA_CLUSTERS_0_BOOTSTRAP_SERVERS=kafka-0:9092,kafka-0:9092,kafka-0:9092
+      - KAFKA_CLUSTERS_0_PROPERTIES_SECURITY_PROTOCOL=SASL_PLAINTEXT
+      - KAFKA_CLUSTERS_0_PROPERTIES_SASL_MECHANISM=PLAIN
+      - KAFKA_CLUSTERS_0_PROPERTIES_SASL_JAAS_CONFIG=org.apache.kafka.common.security.plain.PlainLoginModule required username="ui_user" password="ui_password";

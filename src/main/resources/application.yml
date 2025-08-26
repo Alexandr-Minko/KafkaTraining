@@ -1,0 +1,58 @@
+
+spring:
+  kafka:
+#   используется первый (недоступен - следующий) только при старте для получения списка брокеров
+    bootstrap-servers: localhost:9094,localhost:9095,localhost:9096
+    security:
+      protocol: SASL_SSL
+    ssl:
+      trust-store-location: classpath:ssl/kafka.truststore.jks
+      trust-store-password: password1
+#      нужно только при взаимной аутентификации
+#      key-store-location: classpath:ssl/kafka.keystore.jks
+#      key-store-password: password1
+#      key-password: password1
+
+    producer:
+      # Класс serializer для значения. По умолчанию StringSerializer, в моем случае можно не указывать
+#      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
+      # Брокер игнорирует повторно отправленные сообщения (producerId sequenceNumber). Снижает производительность
+      properties[enable.idempotence]: true
+      # Ожидаем получение подтверждения от лидера и всех реплик. Снижает производительность
+      acks: all
+      # Минимальное число реплик, которые должны подтвердить запись. Поставил реплик / 2 + 1 = 2. По умолчанию 1
+      properties[min.insync.replicas]: 2
+
+      # Кол-во попыток повторной отправки сообщения брокеру. После - исключение. По умолчанию Integer.MAX_VALUE
+      retries: 3
+      # Задержка между попытками. По умолчанию 100 мс
+      properties[retry.backoff.ms]: 500
+
+      properties:
+        sasl.mechanism: SCRAM-SHA-512
+        sasl.jaas.config: org.apache.kafka.common.security.scram.ScramLoginModule required username=producer_user password=producer_password;
+
+    consumer:
+      # Класс deserializer для значения. По умолчанию StringDeserializer, но без явного указания не стартует
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      properties:
+        sasl.mechanism: SCRAM-SHA-512
+        sasl.jaas.config: org.apache.kafka.common.security.scram.ScramLoginModule required username=consumer_user password=consumer_password;
+
+    topic: topic2
+    consumer-group-single: singleCG
+
+
+
+
+
+
+# ниже не смотрим, это просто для удобства
+springdoc:
+  swagger-ui:
+    path: /
+
+logging:
+  pattern:
+    console: "%d{dd.MM HH:mm:ss:SSS, Europe/Moscow} %highlight(%-5level) %cyan(%35.35(%logger{0}) %blue(%-20.20M)) %msg %n"
